@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MI-Dojo - Motivational Interviewing Training</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="styles.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  
+  <!-- PWA Support -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a237e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/images/icon-192.png">
+</head>
+<body>
+  <!-- Landing Page -->
+  <div id="landing-page" class="screen">
+    <div class="hero">
+      <div class="overlay"></div>
+      <div class="hero-content">
+        <div class="logo-large">
+          <span class="material-icons logo-icon-large">psychology</span>
+          <h1>MI-Dojo</h1>
+        </div>
+        <p class="tagline-large">Master Motivational Interviewing</p>
+        <p class="hero-description">
+          Welcome to the MI-Dojo, where you can practice and refine your motivational interviewing skills with AI-powered roleplay scenarios and real-time coaching.
+        </p>
+        <button id="enter-dojo-btn" class="cta-btn">Enter the Dojo</button>
+      </div>
+    </div>
+    
+    <div class="features-section">
+      <h2>Enhance Your MI Skills</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <span class="material-icons feature-icon">person</span>
+          <h3>Realistic Personas</h3>
+          <p>Practice with AI-generated personas representing diverse stages of change and communication styles.</p>
+        </div>
+        <div class="feature-card">
+          <span class="material-icons feature-icon">chat</span>
+          <h3>Interactive Roleplay</h3>
+          <p>Engage in realistic conversations that adapt to your communication approach.</p>
+        </div>
+        <div class="feature-card">
+          <span class="material-icons feature-icon">insights</span>
+          <h3>MITI Analysis</h3>
+          <p>Receive detailed feedback based on the Motivational Interviewing Treatment Integrity (MITI) coding system.</p>
+        </div>
+        <div class="feature-card">
+          <span class="material-icons feature-icon">school</span>
+          <h3>Real-time Coaching</h3>
+          <p>Get instant tips and guidance to improve your technique as you practice.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transition Animation -->
+  <div id="transition-overlay" class="hidden">
+    <div class="transition-content">
+      <div class="dojo-gate">
+        <div class="gate left"></div>
+        <div class="gate right"></div>
+      </div>
+      <h2 class="transition-text">Entering the MI-Dojo</h2>
+    </div>
+  </div>
+
+  <!-- Main App Container -->
+  <div id="app-container" class="hidden">
+    <!-- Welcome/Create Persona Screen -->
+    <div id="welcome-screen" class="screen">
+      <div class="welcome-content">
+        <h2>Create a Practice Persona</h2>
+        <p>Generate a realistic persona to practice your motivational interviewing skills.</p>
+        
+        <div class="create-persona-form">
+          <h3>Scenario Parameters</h3>
+          <div class="form-group">
+            <label for="scenario-type">Scenario Type</label>
+            <select id="scenario-type" class="form-control">
+              <option value="chronic_illness">Chronic Illness</option>
+              <option value="addiction">Addiction</option>
+              <option value="lifestyle_change">Lifestyle Change</option>
+              <option value="mental_health">Mental Health</option>
+              <option value="preventive_care">Preventive Care</option>
+            </select>
+            <p class="help-text">The type of scenario you'll be practicing with.</p>
+          </div>
+          
+          <div class="form-group">
+            <label for="change-readiness">Change Readiness</label>
+            <select id="change-readiness" class="form-control">
+              <option value="pre_contemplation">Pre-contemplation</option>
+              <option value="contemplation">Contemplation</option>
+              <option value="preparation">Preparation</option>
+              <option value="action">Action</option>
+              <option value="maintenance">Maintenance</option>
+            </select>
+            <p class="help-text">The persona's current stage in the change process.</p>
+          </div>
+          
+          <div class="form-group">
+            <label for="additional-context">Additional Context (Optional)</label>
+            <textarea id="additional-context" class="form-control" rows="3" placeholder="Add any specific details you want to include in the scenario..."></textarea>
+            <p class="help-text">Any specific details or circumstances you want to include.</p>
+          </div>
+          
+          <!-- NEW: Communication Style Input -->
+          <div class="form-group">
+            <label for="communication-style">Communication Style (Optional)</label>
+            <textarea id="communication-style" class="form-control" rows="2" 
+              placeholder="E.g., 'Speaks with a Southern accent', 'Uses technical jargon', 'Pauses frequently'..."></textarea>
+            <p class="help-text">Describe how this persona speaks or communicates.</p>
+          </div>
+          
+          <button id="create-persona-btn" class="primary-btn">Generate Persona</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat Screen -->
+    <div id="chat-screen" class="screen hidden">
+      <div class="chat-container">
+        <div class="sidebar">
+          <div class="persona-details">
+            <h3>Persona Details</h3>
+            <div id="persona-info">
+              <!-- Persona details will be filled by JavaScript -->
+            </div>
+          </div>
+          
+          <div class="sidebar-actions">
+            <button id="get-coaching-btn" class="secondary-btn" disabled>Get Coaching</button>
+            <button id="session-feedback-btn" class="secondary-btn" disabled>MITI Analysis</button>
+            <button id="end-session-btn" class="secondary-btn">End Session</button>
+          </div>
+        </div>
+        
+        <div class="chat-main">
+          <div id="chat-messages" class="chat-messages">
+            <!-- Chat messages will be filled by JavaScript -->
+          </div>
+          
+          <div id="coaching-feedback" class="coaching-feedback hidden">
+            <div class="coaching-header">
+              <span class="material-icons coaching-icon">psychology</span>
+              <h4>Coaching Feedback</h4>
+            </div>
+            <div id="coaching-content">
+              <!-- Coaching feedback will be filled by JavaScript -->
+            </div>
+          </div>
+          
+          <div class="chat-input-container">
+            <div class="message-input-wrapper">
+              <textarea id="message-input" placeholder="Type your message..." rows="2"></textarea>
+              <button id="send-message-btn" class="primary-btn">Send</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feedback Screen -->
+    <div id="feedback-screen" class="screen hidden">
+      <div class="feedback-container">
+        <h2>MITI Analysis & Feedback</h2>
+        
+        <div id="feedback-content" class="feedback-content">
+          <!-- Feedback content will be filled by JavaScript -->
+        </div>
+        
+        <div class="actions">
+          <button id="back-to-chat-btn" class="secondary-btn">Back to Chat</button>
+          <button id="new-session-btn" class="primary-btn">Start New Session</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="hidden">
+    <div class="loading-spinner"></div>
+    <p class="loading-text">Processing...</p>
+  </div>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-functions-compat.js"></script>
+
+  <!-- Firebase Configuration -->
+  <script>
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyAHWFvK1UTBmHuJyhlj6TW6w2jN1TOZJc0",
+      authDomain: "vhl-mi-dojo.firebaseapp.com",
+      projectId: "vhl-mi-dojo",
+      storageBucket: "vhl-mi-dojo.appspot.com",
+      messagingSenderId: "308463810416",
+      appId: "1:308463810416:web:f85958c5d63f7b4a3341b5",
+      measurementId: "G-5SSRWPSMBG"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+  </script>
+
+  <!-- Main Application Script -->
+  <script src="app.js"></script>
+</body>
+</html>
