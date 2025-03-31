@@ -89,9 +89,10 @@ function loadPresetPersona(personaName) {
     // Add welcome message
     addWelcomeMessage(personaName);
     
-    // Reset coaching button
+    // Reset coaching and analysis buttons
     document.getElementById('get-coaching-btn').disabled = true;
     document.getElementById('session-feedback-btn').disabled = true;
+    document.getElementById('values-analysis-btn').disabled = true; // Disable new button
     
     // Hide loading overlay
     showLoading(false);
@@ -127,10 +128,19 @@ function addWelcomeMessage(personaName) {
       "Hey! I'm Ogi. I recently started a new fitness routine and diet. It's going well, but I'm facing some challenges sticking with it.",
       "Hi there! Ogi here. I've made some lifestyle changes recently, but social situations make it hard to stay on track.",
       "Hello! I'm Ogi. I'm excited about my new healthy habits, but I'm worried about maintaining them long-term."
+    ],
+    tim: [ // Tim doesn't have random messages, uses preloaded conversation
+      "Placeholder - Tim's conversation is preloaded." 
     ]
   };
+
+  // Special handling for Tim's preloaded conversation
+  if (personaName === 'tim') {
+    preloadTimConversation();
+    return; // Exit function, preloading handles messages
+  }
   
-  // Get random welcome message for the selected persona
+  // Get random welcome message for other personas
   const messages = welcomeMessages[personaName] || ["Hello, I'm ready to chat with you."];
   const randomMessage = messages[Math.floor(Math.random() * messages.length)];
   
@@ -146,6 +156,49 @@ function addWelcomeMessage(personaName) {
     role: 'persona',
     content: randomMessage
   });
+}
+
+// Function to preload Tim's conversation
+function preloadTimConversation() {
+  const preloadedMessages = [
+    { role: 'user', content: "I appreciate your taking time to speak with me today. What are your thoughts about where you'd like to take your AI training company next?" },
+    { role: 'persona', content: "I'm glad we can discuss this. I've been really excited about the potential of growing internationally. I deeply believe that our human-centered approach has value beyond our current market. But I'm aware expansion also brings some complexities." },
+    { role: 'user', content: "You're passionate about your company's mission and yet cautious about the steps ahead. Tell me a little more about these complexities." },
+    { role: 'persona', content: "Exactly. On the one hand, expanding could amplify the impact we make—especially with our ethical approach to AI. But I’m also mindful of maintaining our high standards. It’s crucial to me that our growth remains responsible, fair, and aligned with our core values. It’s not just about getting bigger—it's about getting better." },
+    { role: 'user', content: "Maintaining your ethical standards as you scale up is deeply important to you." },
+    { role: 'persona', content: "Yes, very much so. I think about the global market and the opportunity to influence how AI training respects humanity and fairness. Yet, I can't ignore the financial and operational risks. We've built our reputation on care and precision. Growing too fast or without enough planning might dilute that." },
+    { role: 'user', content: "You’ve carefully considered both the opportunities and the risks involved. If you look ahead, what excites you the most about the possibility of international growth?" },
+    { role: 'persona', content: "Honestly, it's the chance to bring our vision of a fairer, ethically-driven AI world to a wider audience. The energy around making a tangible difference globally is incredibly motivating. I know our team thrives on that kind of mission-driven growth." },
+    { role: 'user', content: "Your passion and enthusiasm for ethical impact are clearly infectious and drive your vision forward." },
+    { role: 'persona', content: "It’s something I’ve always believed in. At the same time, part of me knows we need more expertise on global markets, regulations, cultural considerations, and strategic partnerships to do this right. It's an exciting challenge, but I admit I'm a little uncertain about how best to proceed." },
+    { role: 'user', content: "You acknowledge some areas where additional insight or resources could help smooth this transition. What kind of support do you feel might help you address those uncertainties?" },
+    { role: 'persona', content: "I’d really appreciate guidance from someone who's navigated international expansions, especially someone aligned with our values. Expert advice or mentoring, alongside careful strategic planning, could make a big difference. And perhaps connecting with others who've successfully balanced rapid growth with integrity." },
+    { role: 'user', content: "Connecting with mentors who’ve successfully expanded ethically and strategically could provide confidence as you navigate this next phase." },
+    { role: 'persona', content: "Exactly. It feels important to build that network and learn from their experiences. That would strengthen our approach, reinforce our values, and hopefully, prevent unnecessary pitfalls." },
+    { role: 'user', content: "You're proactively considering how to best equip yourself and your team for responsible, impactful growth. How do you feel about the next immediate step you could take towards this?" },
+    { role: 'persona', content: "Right now, reaching out to identify and speak with potential mentors or experts feels achievable and positive. Starting small with those conversations could open doors and clarify our path forward." },
+    { role: 'user', content: "Taking that initial step to engage with mentors aligns closely with your thoughtful and responsible approach. It sounds like a solid next move." },
+    { role: 'persona', content: "Definitely." }
+  ];
+
+  // Clear existing chat messages
+  document.getElementById('chat-messages').innerHTML = '';
+
+  // Add preloaded messages to chat UI
+  preloadedMessages.forEach(msg => {
+    addMessageToChat(msg.role, msg.content);
+  });
+
+  // Set conversation history
+  window.conversationHistory = preloadedMessages;
+
+  // Enable buttons as conversation is already started
+  document.getElementById('get-coaching-btn').disabled = false;
+  document.getElementById('session-feedback-btn').disabled = false;
+  document.getElementById('values-analysis-btn').disabled = false; // Enable new button
+
+  // Request initial coaching feedback for the last user message
+  requestCoachingFeedback();
 }
 
 // Set up all event listeners for the application
@@ -172,6 +225,12 @@ function setupEventListeners() {
   const sessionFeedbackBtn = document.getElementById('session-feedback-btn');
   if (sessionFeedbackBtn) {
     sessionFeedbackBtn.addEventListener('click', generateSessionFeedback);
+  }
+
+  // Values Analysis button
+  const valuesAnalysisBtn = document.getElementById('values-analysis-btn');
+  if (valuesAnalysisBtn) {
+    valuesAnalysisBtn.addEventListener('click', generateValuesAnalysis); // New function call
   }
 
   // Message Input - Enter key functionality
@@ -459,9 +518,10 @@ function createPersonaWithValues(scenarioType, changeReadiness, additionalContex
     // Clear previous chat
     document.getElementById('chat-messages').innerHTML = '';
     
-    // Reset coaching button
+    // Reset coaching and analysis buttons
     document.getElementById('get-coaching-btn').disabled = true;
     document.getElementById('session-feedback-btn').disabled = true;
+    document.getElementById('values-analysis-btn').disabled = true; // Disable new button
     
     // Hide loading overlay
     showLoading(false);
@@ -608,9 +668,10 @@ function sendMessage() {
       content: response
     });
    
-    // Enable buttons after first exchange
+    // Enable buttons after first exchange (or preloaded conversation)
     document.getElementById('get-coaching-btn').disabled = false;
     document.getElementById('session-feedback-btn').disabled = false;
+    document.getElementById('values-analysis-btn').disabled = false; // Enable new button
    
     // Request coaching feedback automatically
     setTimeout(() => {
@@ -962,6 +1023,47 @@ function getCoaching(showLoadingOverlay = true) {
   });
 }
 
+// Generate Values Analysis feedback (New Function)
+function generateValuesAnalysis() {
+  // Check if we have enough conversation
+  const history = getConversationHistory();
+  if (history.length < 2) {
+    showError('You need more conversation history to generate Values Analysis.');
+    return;
+  }
+  
+  // Show loading
+  showLoading(true);
+  
+  // Call the new feedback function (to be created in backend)
+  const valuesAnalysisFn = firebase.functions().httpsCallable('valuesAnalysis'); // New function name
+  
+  valuesAnalysisFn({
+    conversation: history,
+    persona: window.currentPersona
+  })
+  .then((result) => {
+    // Store feedback data for download (optional, might need separate storage)
+    // window.currentValuesFeedbackData = result.data; 
+    
+    // Render the Values feedback (using a modified or new render function)
+    renderValuesFeedback(result.data); // New render function
+    
+    // Switch to feedback screen (or maybe a dedicated values screen?)
+    // For now, reuse the feedback screen but change the title
+    document.querySelector('#feedback-screen h2').textContent = 'Values Analysis & Feedback';
+    transitionToScreen('feedback');
+    
+    // Hide loading
+    showLoading(false);
+  })
+  .catch((error) => {
+    console.error('Error generating values analysis:', error);
+    showError('Error generating values analysis: ' + error.message);
+    showLoading(false);
+  });
+}
+
 // Generate MITI session feedback
 function generateSessionFeedback() {
   // Check if we have enough conversation
@@ -1001,10 +1103,56 @@ function generateSessionFeedback() {
   });
 }
 
-// Render session feedback
+// Render Values Analysis feedback (New Function)
+function renderValuesFeedback(feedback) {
+  const feedbackContent = document.getElementById('feedback-content');
+  
+  // Create HTML for the values feedback
+  // This structure needs to be defined based on the output of the 'valuesAnalysis' function
+  // For now, let's assume a simple structure:
+  let html = `
+    <h3>Values Alignment Summary</h3>
+    <p>${feedback.summary || 'No summary available.'}</p> 
+    
+    <h4>Key Moments & Alignment</h4>
+    <ul>
+      ${feedback.key_moments && feedback.key_moments.length > 0 
+        ? feedback.key_moments.map(moment => `<li><strong>${moment.value}:</strong> ${moment.description}</li>`).join('') 
+        : '<li>No specific moments highlighted.</li>'}
+    </ul>
+
+    <h4>Suggestions for Improvement</h4>
+    <ul>
+      ${feedback.suggestions && feedback.suggestions.length > 0 
+        ? feedback.suggestions.map(suggestion => `<li>${suggestion}</li>`).join('') 
+        : '<li>No specific suggestions.</li>'}
+    </ul>
+  `; 
+  // TODO: Adjust HTML based on the actual structure returned by the backend function.
+
+  feedbackContent.innerHTML = html;
+
+  // Ensure download button is hidden or adapted if feedback structure differs
+  const downloadBtn = document.getElementById('download-feedback-btn');
+  if (downloadBtn) {
+    // Maybe disable or change text? For now, hide it for values analysis.
+    downloadBtn.style.display = 'none'; 
+  }
+}
+
+// Render MITI session feedback
 function renderFeedback(feedback) {
   const feedbackContent = document.getElementById('feedback-content');
   
+  // Ensure title is correct for MITI
+  document.querySelector('#feedback-screen h2').textContent = 'MITI Analysis & Feedback';
+
+  // Ensure download button is visible for MITI
+  const downloadBtn = document.getElementById('download-feedback-btn');
+  if (downloadBtn) {
+    downloadBtn.style.display = 'inline-block'; // Make sure it's visible
+  }
+
   // Create HTML for the feedback
   let html = `
     <h3>MITI Scores</h3>

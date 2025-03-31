@@ -157,6 +157,60 @@ const presetPersonas = {
       technical_domains: ['Active listening', 'Support autonomy', 'Evoke change talk']
     },
   },
+  tim: {
+    persona_id: 'tim_business',
+    base_characteristics: {
+      condition: 'Business Development & International Expansion',
+      stage_of_change: 'preparation', // Considering expansion but needs guidance
+      key_resistances: [
+        'Uncertainty about navigating global markets',
+        'Concern about maintaining company values during growth',
+        'Resource constraints (expertise, funding)',
+        'Fear of diluting company culture/reputation'
+      ],
+      communication_style:
+        'Warm, supportive, caring, and precise. Articulates vision clearly. ' +
+        'Expresses passion for ethical business and making a difference. ' +
+        'Open about challenges and uncertainties. Values collaboration and mentorship.',
+      example_lines: [ // Derived from the sample conversation (BO's lines)
+        '“I\'ve been really excited about the potential of growing internationally. I deeply believe that our human-centered approach has value beyond our current market.”',
+        '“It’s crucial to me that our growth remains responsible, fair, and aligned with our core values. It’s not just about getting bigger—it\'s about getting better.”',
+        '“Honestly, it\'s the chance to bring our vision of a fairer, ethically-driven AI world to a wider audience.”',
+        '“I admit I\'m a little uncertain about how best to proceed.”'
+      ]
+    },
+    scenario_context: {
+      life_circumstances:
+        'Leading a fledgling healthcare and training company aiming for international growth.',
+      support_system: 'Seeking mentorship and strategic partnerships.',
+      stress_factors: [
+        'Scaling operations responsibly',
+        'Navigating international regulations and cultural differences',
+        'Securing necessary resources/expertise',
+        'Balancing growth with maintaining core values'
+      ]
+    },
+    change_dynamics: {
+      readiness_level: 'High desire, moderate ability/confidence',
+      ambivalence_areas: [
+        'Potential risks vs. rewards of expansion',
+        'Speed of growth vs. maintaining quality/values',
+        'Need for external expertise vs. maintaining internal control'
+      ],
+      change_talk_patterns: { // Estimated based on description and conversation
+        commitment: 6,
+        desire: 9,
+        ability: 5,
+        need: 7,
+        reasons: 8,
+        taking_steps: 4 // In preparation/early action
+      }
+    },
+    org_values_alignment: { // Based on the provided core beliefs
+      foundations: ['Human-centered', 'Passion', 'Bravery (Change)', 'Responsibility', 'Integrity', 'Fairness'],
+      technical_domains: ['Develop Leadership', 'Disruptive Voice', 'Make Business Better'] // Interpreted actions/goals
+    },
+  }
 };
 
 
@@ -197,6 +251,32 @@ const SessionFeedbackInputSchema = z.object({
 
 // Define the enum types to ensure consistent values
 const CompetencyRating = z.enum(["Below Fair", "Fair", "Good"]);
+
+// Schema for MBA Values Driven Leadership Rubric
+const ValuesRubricSchema = z.object({
+  summary: z.string(),
+  key_moments: z.array(
+    z.object({
+      value: z.string(),
+      description: z.string()
+    })
+  ),
+  suggestions: z.array(z.string()),
+  rubric_assessment: z.object({
+    fosters_action: z.object({
+      level: z.number().min(1).max(4),
+      justification: z.string()
+    }),
+    personal_social_responsibility: z.object({
+      level: z.number().min(1).max(4),
+      justification: z.string()
+    }),
+    knowledge_of_self: z.object({
+      level: z.number().min(1).max(4),
+      justification: z.string()
+    })
+  })
+});
 
 // Schema for MITI scores (using MITI 4.2.1 coding system)
 const MITIScoreSchema = z.object({
@@ -456,8 +536,8 @@ Return a JSON object structured as follows:
   "coaching_message": string (optional),
   "mi_technique_used": string (optional),
   "missed_opportunity": string (optional),
-  "rationale": string (optional) // Justify your assessment using MITI criteria
-  "values_alignment_feedback": string (optional) // Provide feedback on how the user's message aligns (or doesn't) with the persona's specific org_values_alignment (foundations and technical_domains). Reference specific values mentioned in the persona.
+  "rationale": string (optional), // Justify your assessment using MITI criteria
+  "values_alignment_feedback": string (optional) // Provide CONCISE feedback (1-2 sentences or bullet points) on how the user's message aligns (or doesn't) with the persona's specific org_values_alignment (foundations and technical_domains). Reference specific values mentioned in the persona. Keep this feedback brief and actionable.
 }`;
 
       const result = await ai.generate({
@@ -485,8 +565,110 @@ Return a JSON object structured as follows:
   }
 );
 
-// 4. Session Analysis & Feedback System
+// 4. Values Analysis System
+const valuesAnalysisFlow = ai.defineFlow(
+  {
+    name: "valuesAnalysisFlow",
+    inputSchema: SessionFeedbackInputSchema, // Reuse the same input schema as sessionFeedback
+    outputSchema: ValuesRubricSchema,
+  },
+  async (input) => {
+    try {
+      const result = await ai.generate({
+        prompt: `Analyze this conversation for values-driven leadership according to the MBA Values Driven Leadership Rubric.
 
+PERSONA:
+${JSON.stringify(input.persona, null, 2)}
+
+CONVERSATION:
+${input.conversation.map(msg => 
+  `${msg.role.toUpperCase()}: ${msg.content}`).join("\n")}
+
+MBA VALUES DRIVEN LEADERSHIP RUBRIC:
+{
+  "MBA_VALUES_DRIVEN_LEADERSHIP_RUBRIC": [
+    {
+      "Criteria": "Fosters Action Towards Achievement of Organizational Goals",
+      "Levels": {
+        "Level 1": "Is not able to exhibit an understanding of the impact of change within and outside the organization and translate it into a coherent action plan",
+        "Level 2": "Has limited understanding of and difficulty analyzing the impact of change within and outside the organization and translate into a coherent action plan",
+        "Level 3": "Understands and with minor difficulty analyzes the impact of change within and outside the organization and translate it into a coherent action plan",
+        "Level 4": "Is able to analyze the impact of change within and outside the organization and translate it into a coherent action plan"
+      }
+    },
+    {
+      "Criteria": "Personal and Social Responsibility",
+      "Levels": {
+        "Level 1": "Identifies basic ethical dimensions of some local or national decisions that have impact on human systems",
+        "Level 2": "Explains the ethical, social, and environmental consequences of local and national decisions on human systems",
+        "Level 3": "Analyzes the ethical, social, and environmental consequences of human systems and identifies a range of actions informed by one's sense of personal and social responsibility",
+        "Level 4": "Takes informed and responsible action to address ethical, social and environmental challenges in human systems and evaluates the local and broader consequences of individual and collective interventions"
+      }
+    },
+    {
+      "Criteria": "Knowledge of Self as a Leader",
+      "Levels": {
+        "Level 1": "Has very limited sense of own leadership capacity and has done very little self-examination related to personal leadership style, vision, and values",
+        "Level 2": "Has a beginning sense of own leadership capacity based on some basic examination of personal leadership style, vision, and values",
+        "Level 3": "Can articulate some facets of own leadership capacity based on some examination of personal leadership style, vision, and values",
+        "Level 4": "Can clearly articulate own leadership capacity based on a thorough examination of personal leadership style, vision, and values"
+      }
+    }
+  ]
+}
+
+Analyze the conversation and assess how well the user (coach/interviewer) demonstrates values-driven leadership in their interaction with the persona. Focus on:
+
+1. How the user helps the persona foster action towards organizational goals
+2. How the user demonstrates personal and social responsibility
+3. How the user shows knowledge of self as a leader
+
+For each criterion in the rubric, assign a level (1-4) and provide a brief justification based on specific examples from the conversation.
+
+Also identify key moments in the conversation where specific values were demonstrated or could have been better emphasized.
+
+Return a JSON object with:
+1. A concise summary of the values alignment
+2. Key moments with specific values identified
+3. Suggestions for improvement
+4. Assessment against each rubric criterion with level and justification`,
+        output: { 
+          schema: ValuesRubricSchema,
+          format: "json"
+        },
+      });
+      
+      if (result.output) {
+        return result.output;
+      }
+    } catch (error) {
+      console.error("Error in valuesAnalysisFlow:", error);
+    }
+    
+    // Default fallback value
+    return {
+      summary: "Not enough conversation to evaluate values alignment.",
+      key_moments: [],
+      suggestions: ["Continue the conversation to receive meaningful values analysis."],
+      rubric_assessment: {
+        fosters_action: {
+          level: 1,
+          justification: "Insufficient data to evaluate."
+        },
+        personal_social_responsibility: {
+          level: 1,
+          justification: "Insufficient data to evaluate."
+        },
+        knowledge_of_self: {
+          level: 1,
+          justification: "Insufficient data to evaluate."
+        }
+      }
+    };
+  }
+);
+
+// 5. Session Analysis & Feedback System (MITI)
 const sessionFeedbackFlow = ai.defineFlow(
   {
     name: "sessionFeedbackFlow", 
@@ -603,7 +785,7 @@ Follow these exact MITI 4.2.1 coding instructions:
 const getPresetPersonaFlow = ai.defineFlow(
   {
     name: 'getPresetPersonaFlow',
-    inputSchema: z.object({ name: z.enum(['mat', 'saira', 'ogi']) }),
+    inputSchema: z.object({ name: z.enum(['mat', 'saira', 'ogi', 'tim']) }), // Added 'tim'
     outputSchema: PersonaOutputSchema,
   },
   async (input) => {
@@ -626,4 +808,5 @@ export const generatePersona = onCallGenkit(functionConfig, generatePersonaFlow)
 export const personaChat = onCallGenkit(functionConfig, personaChatFlow);
 export const miCoaching = onCallGenkit(functionConfig, miCoachingFlow);
 export const sessionFeedback = onCallGenkit(functionConfig, sessionFeedbackFlow);
+export const valuesAnalysis = onCallGenkit(functionConfig, valuesAnalysisFlow); // Export new function
 export const getPresetPersona = onCallGenkit(functionConfig, getPresetPersonaFlow);

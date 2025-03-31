@@ -569,7 +569,8 @@ footer {
 }
 
 .chat-messages {
-  flex: 1;
+  flex-grow: 1; /* Allow it to take available space */
+  min-height: 0; /* Prevent it from expanding parent */
   padding: 20px;
   overflow-y: auto;
   display: flex;
