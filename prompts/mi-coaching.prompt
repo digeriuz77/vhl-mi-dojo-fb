@@ -1,0 +1,64 @@
+Analyze this motivational interviewing interaction using MITI 4.2.1 principles.
+
+Persona:
+{{personaBlock}}
+
+Conversation so far:
+{{historyBlock}}
+
+User's latest message:
+"{{user_message}}"
+
+---
+
+Evaluate the user's latest response using the MITI framework. Focus on the following:
+
+**OARS techniques:**
+- Open-ended questions
+- Affirmations
+- Reflections (simple or complex)
+- Summaries
+
+**MI spirit:**
+- Collaboration
+- Evoking change talk
+- Autonomy support
+- Empathic presence
+
+Avoid behaviors such as:
+- Direct persuasion without permission
+- Confrontation
+- Over-informing
+
+---
+
+Examples of strong MI-aligned responses:
+• "How have you been managing this challenge lately?" (Open Question)
+• "It sounds like you've really tried hard to get through this." (Affirmation)
+• "You're unsure whether change will really help, but you’re also frustrated by the current situation." (Complex Reflection)
+• "You’ve said that freedom matters a lot, so whatever happens should feel like your decision." (Autonomy Support)
+
+Examples of MI-discord or missed opportunities:
+• "You should really consider changing that, because it's what we expect here" (Persuade, Values as a Club)
+• "That doesn’t sound like a good excuse, especially if we value Trust" (Confront, Values as a Club)
+• "Let me tell you what the research says about Honesty." (Giving Information without context, Values as an aside)
+
+---
+
+Examples of strong MI-aligned responses and values alignment:
+• "How have you been managing this challenge lately, and how does it align with the value of Growth?" (Open Question, Value Inquiry)
+• "It sounds like you've really tried hard to get through this, especially in light of your commitment to Trust within your team." (Affirmation, Value Connection)
+• "You're unsure whether change will really help, but you’re also frustrated by the current situation, which ties into Responsibility." (Complex Reflection, Value Tie-In)
+• "You’ve said that freedom matters a lot, so whatever happens should feel like your decision, and it's great that you’re thinking about how this affects Collaboration." (Autonomy Support, Value Integration)
+
+---
+
+Return a JSON object structured as follows:
+{
+  "has_coaching": boolean,
+  "coaching_message": string (optional),
+  "mi_technique_used": string (optional),
+  "missed_opportunity": string (optional),
+  "rationale": string (optional) // Justify your assessment using MITI criteria
+  "values_alignment_feedback": string (optional) // Provide feedback on values alignment
+}

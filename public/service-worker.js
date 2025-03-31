@@ -27,10 +27,9 @@ self.addEventListener('install', event => {
   );
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches and clear localStorage
 self.addEventListener('activate', event => {
-  // Take control of all clients immediately
-  event.waitUntil(clients.claim());
+  event.waitUntil(Promise.all([self.clients.claim(), self.clients.matchAll().then((clients) => { clients.forEach((client) => { client.postMessage({ type: 'CLEAR_LOCAL_STORAGE' }); }); })]));
   
   const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
@@ -45,6 +44,14 @@ self.addEventListener('activate', event => {
       );
     })
   );
+});
+
+// Listen for messages from clients
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'CLEAR_LOCAL_STORAGE') {
+    self.clients.matchAll().then((clients) => {
+      clients.forEach((client) => { client.postMessage({ type: 'LOCAL_STORAGE_CLEARED' }); }); });
+  }
 });
 
 // Cache-busting function for critical assets

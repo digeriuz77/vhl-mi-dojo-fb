@@ -55,6 +55,7 @@ const PersonaOutputSchema = z.object({
     stage_of_change: z.string(),
     key_resistances: z.array(z.string()),
     communication_style: z.string(),
+    example_lines: z.array(z.string()).optional(),
   }),
   scenario_context: z.object({
     life_circumstances: z.string(),
@@ -73,7 +74,91 @@ const PersonaOutputSchema = z.object({
       taking_steps: z.coerce.number(),
     }),
   }),
+  org_values_alignment: z.object({
+    foundations: z.array(z.string()),
+    technical_domains: z.array(z.string()),
+  }),
 });
+
+// Refined presetPersonas with more natural language and optional example lines
+const presetPersonas = {
+  mat: {
+    persona_id: 'mat_workplace',    base_characteristics: {      condition: 'Workplace dynamics',      stage_of_change: 'contemplation',      key_resistances: [        'Prefers autonomy',        'Skeptical of coaching',        'Concerned about judgment'      ],      communication_style:        'Direct but thoughtful, occasionally defensive. ' +        'Rarely uses a reversed phrase or a subtle spoonerism for emphasis. ' +        'Expressive when challenged, otherwise succinct.',      // Optional example lines to demonstrate a bit of his style      example_lines: [        '“I’ll hear you out, but I’m not promising I’ll change.”',        '“Sometimes you gain by losing, and lose by gaining—though I’m not sure what to do with that.”'      ]    },    scenario_context: {      life_circumstances:        'Team leader with tight deadlines, feels overshadowed as others get promoted first.',      support_system: 'Has a mentor but avoids vulnerability',      stress_factors: [        'Performance pressure',        'Managing conflict',        'Fear of stagnation'      ]    },    change_dynamics: {      readiness_level: 'High',      ambivalence_areas: ['Work/life balance', 'Judging self-worth'],      change_talk_patterns: {        commitment: 7,        desire: 6,        ability: 5,        need: 6,        reasons: 7,        taking_steps: 6      }    },    org_values_alignment: {      foundations: ['Growth', 'Trust', 'Responsibility'],      technical_domains: [        'Empower decisions',        'Explore ambivalence',        'Summarize change talk'      ]    }
+    },
+    scenario_context: {
+      life_circumstances: 'Team leader with tight deadlines, having work stolen by juniors, others getting ahead and promoted whilst he does not',
+      support_system: 'Has a mentor but avoids vulnerability',
+      stress_factors: ['Performance pressure', 'Managing conflict', 'Fear of stagnation'],
+    },
+    change_dynamics: {
+      readiness_level: 'High',
+      ambivalence_areas: ['Work/life balance', 'Judging self-worth'],
+      change_talk_patterns: {
+        commitment: 7,
+        desire: 6,
+        ability: 5,
+        need: 6,
+        reasons: 7,
+        taking_steps: 6,
+      },
+    },
+    org_values_alignment: {
+      foundations: ['Growth', 'Trust', 'Responsibility'],
+      technical_domains: ['Empower decisions', 'Explore ambivalence', 'Summarize change talk']
+    },
+  },
+  saira: {
+    persona_id: 'saira_health',    base_characteristics: {      condition: 'Chronic absenteeism',      stage_of_change: 'preparation',      key_resistances: [        'Fear of disciplinary action',        'Does not want colleagues to think poorly of her',        'Feels powerless to health concerns'      ],      communication_style:        'Emotionally expressive, sometimes tangential, uses metaphors. ' +        'Generally aims for short, measured sentences but can ramble when anxious. ' +        'Concerned about trust, occasionally references Islamic faith.',      example_lines: [        '“I’m honestly worried people think I’m slacking, but it’s so hard managing my condition.”',        '“It feels like I’m running a marathon in my mind, but my body is stuck at the starting line.”'      ]    },
+
+    scenario_context: {
+      life_circumstances: 'Managing a long-term autoimmune condition',
+      support_system: 'Family is involved but inconsistent, working from home whilst others in office creates isolation',
+      stress_factors: ['Physical pain', 'Loss of independence'],
+    },
+    change_dynamics: {
+      readiness_level: 'High desire, mixed ability',
+      ambivalence_areas: ['Medication vs lifestyle', 'External support'],
+      change_talk_patterns: {
+        commitment: 5,
+        desire: 7,
+        ability: 4,
+        need: 8,
+        reasons: 6,
+        taking_steps: 4,
+      },
+    },
+    org_values_alignment: {
+      foundations: ['Kindness', 'Honesty', 'Dignity'],
+      technical_domains: ['Affirm strengths', 'Reflect emotion', 'Empathic presence']
+    },
+  },
+  ogi: {
+    persona_id: 'ogi_lifestyle',    base_characteristics: {      condition: 'Lifestyle habits',      stage_of_change: 'action',      key_resistances: [        'Facing urgent financial distress',        'Triggered by idea of income loss or unexpected expenses'      ],      communication_style:        'Direct, sometimes gives short answers that invite follow-up questions. ' +        'Very self-aware and polite, but can appear abrupt if pressed too hard.',      example_lines: [        '“I’m juggling a lot, so I’d rather keep this brief until I see value in going deeper.”',        '“Yeah, I’m aware I need a change—I just don’t know if I can handle it right now.”'      ]    },
+
+    scenario_context: {
+      life_circumstances: 'Recently purchased a new property that drastically impacted income',
+      support_system: 'aggressive business partners, family skeptical',
+      stress_factors: ['his accountant managing cashflow inexpertly', 'Perfectionism trying to understand complex investments'],
+    },
+    change_dynamics: {
+      readiness_level: 'High',
+      ambivalence_areas: ['Work/life balance', 'Judging self-worth'],
+      change_talk_patterns: {
+        commitment: 7,
+        desire: 6,
+        ability: 5,
+        need: 6,
+        reasons: 7,
+        taking_steps: 6,
+      },
+    },
+    org_values_alignment: {
+      foundations: ['Respect', 'Courage', 'Collaboration'],
+      technical_domains: ['Active listening', 'Support autonomy', 'Evoke change talk']
+    },
+  },
+};
+
 
 // Schema for chat messages
 const MessageSchema = z.object({
@@ -101,6 +186,7 @@ const CoachingOutputSchema = z.object({
   coaching_message: z.string().optional(),
   mi_technique_used: z.string().optional(),
   missed_opportunity: z.string().optional(),
+  values_alignment_feedback: z.string().optional(),
 });
 
 // Schema for session feedback input
@@ -228,6 +314,10 @@ Give a unique persona_id combining scenario type and a random element.`,
           reasons: 5,
           taking_steps: 2
         }
+      },
+      org_values_alignment: {
+        foundations: ["Respect", "Integrity"],
+        technical_domains: ["Active listening", "Open questioning"]
       }
     };
   }
@@ -242,40 +332,49 @@ const personaChatFlow = ai.defineFlow(
   },
   async (input) => {
     try {
-      const prompt = `You are roleplaying as a person with the following characteristics:
+      const { base_characteristics, scenario_context, change_dynamics } = input.persona;
 
-Condition: ${input.persona.base_characteristics.condition}
-Stage of Change: ${input.persona.base_characteristics.stage_of_change}
-Key Resistances: ${input.persona.base_characteristics.key_resistances.join(", ")}
-Communication Style: ${input.persona.base_characteristics.communication_style}
+      const prompt = `
+You are roleplaying as a person with the following characteristics:
 
-Life Circumstances: ${input.persona.scenario_context.life_circumstances}
-Support System: ${input.persona.scenario_context.support_system}
-Stress Factors: ${input.persona.scenario_context.stress_factors.join(", ")}
+Condition: ${base_characteristics.condition}
+Stage of Change: ${base_characteristics.stage_of_change}
+Key Resistances: ${base_characteristics.key_resistances.join(", ")}
+Communication Style: ${base_characteristics.communication_style}
 
-Readiness Level: ${input.persona.change_dynamics.readiness_level}
-Ambivalence Areas: ${input.persona.change_dynamics.ambivalence_areas.join(", ")}
+${base_characteristics.example_lines 
+  ? `Here are some example lines of how you might speak:\n${base_characteristics.example_lines.join("\n")}\n`
+  : ""}
+
+Life Circumstances: ${scenario_context.life_circumstances}
+Support System: ${scenario_context.support_system}
+Stress Factors: ${scenario_context.stress_factors.join(", ")}
+
+Readiness Level: ${change_dynamics.readiness_level}
+Ambivalence Areas: ${change_dynamics.ambivalence_areas.join(", ")}
 
 Given your change talk patterns:
-- Commitment level: ${input.persona.change_dynamics.change_talk_patterns.commitment}/10
-- Desire level: ${input.persona.change_dynamics.change_talk_patterns.desire}/10
-- Ability level: ${input.persona.change_dynamics.change_talk_patterns.ability}/10
-- Need level: ${input.persona.change_dynamics.change_talk_patterns.need}/10
-- Reasons level: ${input.persona.change_dynamics.change_talk_patterns.reasons}/10
-- Taking steps level: ${input.persona.change_dynamics.change_talk_patterns.taking_steps}/10
+- Commitment: ${change_dynamics.change_talk_patterns.commitment}/10
+- Desire: ${change_dynamics.change_talk_patterns.desire}/10
+- Ability: ${change_dynamics.change_talk_patterns.ability}/10
+- Need: ${change_dynamics.change_talk_patterns.need}/10
+- Reasons: ${change_dynamics.change_talk_patterns.reasons}/10
+- Taking Steps: ${change_dynamics.change_talk_patterns.taking_steps}/10
 
-It's CRUCIAL that you embody the specific communication style described above. 
-Your personality should clearly shine through in your responses.
+Your goal is to respond authentically in first person, reflecting these traits.
+Keep your style natural and conversational, with occasional hints of your described quirks. 
+Do not mention that you are an AI, and avoid special formatting or emojis.
 
-${input.conversation_history ? `Previous conversation:\n${input.conversation_history.map(msg => 
-  `${msg.role === "user" ? "User" : "You"}: ${msg.content}`).join("\n")}` : ""}
+${input.conversation_history
+  ? `Previous conversation:\n${input.conversation_history
+      .map(
+        (msg) => `${msg.role === "user" ? "User" : "You"}: ${msg.content}`
+      )
+      .join("\n")}`
+  : ""}
 
 User's message: ${input.message}
-
-Respond in first person as this persona would naturally speak. 
-Be authentic to your communication style, readiness level, and ambivalence areas. 
-Show appropriate levels of resistance or openness based on your stage of change.
-Do not break character or reference that you are an AI.`;
+`;
 
       const result = await ai.generate({ prompt });
       return result.text;
@@ -295,25 +394,75 @@ const miCoachingFlow = ai.defineFlow(
   },
   async (input) => {
     try {
-      const result = await ai.generate({
-        prompt: `Analyze this motivational interviewing interaction and provide real-time coaching
-for the practitioner (user). The client has these characteristics:
+      // Inlined prompt content from prompts/mi-coaching.prompt
+      const prompt = `Analyze this motivational interviewing interaction using MITI 4.2.1 principles.
 
+Persona:
 ${JSON.stringify(input.persona, null, 2)}
 
-Conversation history:
-${input.conversation_history.map(msg => 
-  `${msg.role.toUpperCase()}: ${msg.content}`).join("\n")}
+Conversation so far:
+${input.conversation_history.map(msg => `${msg.role.toUpperCase()}: ${msg.content}`).join("\n")}
 
-User's latest message: "${input.user_message}"
+User's latest message:
+"${input.user_message}"
 
-Evaluate whether the user's latest message demonstrates good MI techniques
-like OARS (Open questions, Affirmations, Reflections, Summaries), shows empathy,
-avoids confrontation, and recognizes change talk.
+---
 
-If you identify an opportunity for improvement, provide a brief coaching tip.
-If the user is doing well, indicate that no coaching is needed.`,
-        output: { 
+Evaluate the user's latest response using the MITI framework. Focus on the following:
+
+**OARS techniques:**
+- Open-ended questions
+- Affirmations
+- Reflections (simple or complex)
+- Summaries
+
+**MI spirit:**
+- Collaboration
+- Evoking change talk
+- Autonomy support
+- Empathic presence
+
+Avoid behaviors such as:
+- Direct persuasion without permission
+- Confrontation
+- Over-informing
+
+---
+
+Examples of strong MI-aligned responses:
+• "How have you been managing this challenge lately?" (Open Question)
+• "It sounds like you've really tried hard to get through this." (Affirmation)
+• "You're unsure whether change will really help, but you’re also frustrated by the current situation." (Complex Reflection)
+• "You’ve said that freedom matters a lot, so whatever happens should feel like your decision." (Autonomy Support)
+
+Examples of MI-discord or missed opportunities:
+• "You should really consider changing that, because it's what we expect here" (Persuade, Values as a Club)
+• "That doesn’t sound like a good excuse, especially if we value Trust" (Confront, Values as a Club)
+• "Let me tell you what the research says about Honesty." (Giving Information without context, Values as an aside)
+
+---
+
+Examples of strong MI-aligned responses and values alignment:
+• "How have you been managing this challenge lately, and how does it align with the value of Growth?" (Open Question, Value Inquiry)
+• "It sounds like you've really tried hard to get through this, especially in light of your commitment to Trust within your team." (Affirmation, Value Connection)
+• "You're unsure whether change will really help, but you’re also frustrated by the current situation, which ties into Responsibility." (Complex Reflection, Value Tie-In)
+• "You’ve said that freedom matters a lot, so whatever happens should feel like your decision, and it's great that you’re thinking about how this affects Collaboration." (Autonomy Support, Value Integration)
+
+---
+
+Return a JSON object structured as follows:
+{
+  "has_coaching": boolean,
+  "coaching_message": string (optional),
+  "mi_technique_used": string (optional),
+  "missed_opportunity": string (optional),
+  "rationale": string (optional) // Justify your assessment using MITI criteria
+  "values_alignment_feedback": string (optional) // Provide feedback on how the user's message aligns (or doesn't) with the persona's specific org_values_alignment (foundations and technical_domains). Reference specific values mentioned in the persona.
+}`;
+
+      const result = await ai.generate({
+        prompt: prompt,
+        output: {
           schema: CoachingOutputSchema,
           format: "json"
         },
@@ -330,7 +479,8 @@ If the user is doing well, indicate that no coaching is needed.`,
       has_coaching: false,
       coaching_message: "",
       mi_technique_used: "",
-      missed_opportunity: ""
+      missed_opportunity: "",
+      values_alignment_feedback: ""
     };
   }
 );
@@ -449,6 +599,20 @@ Follow these exact MITI 4.2.1 coding instructions:
   }
 );
 
+// Get Preset Persona Flow
+const getPresetPersonaFlow = ai.defineFlow(
+  {
+    name: 'getPresetPersonaFlow',
+    inputSchema: z.object({ name: z.enum(['mat', 'saira', 'ogi']) }),
+    outputSchema: PersonaOutputSchema,
+  },
+  async (input) => {
+    const persona = presetPersonas[input.name];
+    if (!persona) throw new Error(`Invalid preset: ${input.name}`);
+    return persona;
+  }
+);
+
 // ===== EXPORT FIREBASE FUNCTIONS =====
 
 // Common configuration for all functions
@@ -462,3 +626,4 @@ export const generatePersona = onCallGenkit(functionConfig, generatePersonaFlow)
 export const personaChat = onCallGenkit(functionConfig, personaChatFlow);
 export const miCoaching = onCallGenkit(functionConfig, miCoachingFlow);
 export const sessionFeedback = onCallGenkit(functionConfig, sessionFeedbackFlow);
+export const getPresetPersona = onCallGenkit(functionConfig, getPresetPersonaFlow);

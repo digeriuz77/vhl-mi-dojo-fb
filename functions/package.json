@@ -11,10 +11,11 @@
     "logs": "firebase functions:log"
   },
   "engines": {
-    "node": "22"
+    "node": "20"
   },
   "main": "lib/index.js",
   "dependencies": {
+    "@genkit-ai/dev-local-vectorstore": "^1.4.0",
     "@genkit-ai/firebase": "^1.1.0",
     "@genkit-ai/googleai": "^1.1.0",
     "firebase-admin": "^12.7.0",

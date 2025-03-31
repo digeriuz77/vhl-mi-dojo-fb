@@ -77,10 +77,39 @@
     <!-- Welcome/Create Persona Screen -->
     <div id="welcome-screen" class="screen">
       <div class="welcome-content">
-        <h2>Create a Practice Persona</h2>
-        <p>Generate a realistic persona to practice your motivational interviewing skills.</p>
+        <h2>Choose Your Practice Partner</h2>
+        <p>Select a preset persona or create your own to practice motivational interviewing skills.</p>
         
-        <div class="create-persona-form">
+        <div class="preset-personas">
+          <h3>Preset Personas</h3>
+          <div class="avatar-selection">
+            <div class="avatar-card" data-persona="mat">
+              <img src="/images/mat.png" alt="Mat">
+              <h4>Mat</h4>
+              <p>Workplace dynamics</p>
+            </div>
+            <div class="avatar-card" data-persona="saira">
+              <img src="/images/saira.png" alt="Saira">
+              <h4>Saira</h4>
+              <p>Chronic illness</p>
+            </div>
+            <div class="avatar-card" data-persona="ogi">
+              <img src="/images/ogi.png" alt="Ogi">
+              <h4>Ogi</h4>
+              <p>Lifestyle habits</p>
+            </div>
+            <div class="avatar-card" data-persona="custom">
+              <div class="custom-avatar">
+                <span class="material-icons">add</span>
+              </div>
+              <h4>Custom</h4>
+              <p>Create your own</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="create-persona-form hidden">
+          <h3>Create Custom Persona</h3>
           <h3>Scenario Parameters</h3>
           <div class="form-group">
             <label for="scenario-type">Scenario Type</label>
@@ -179,6 +208,7 @@
         
         <div class="actions">
           <button id="back-to-chat-btn" class="secondary-btn">Back to Chat</button>
+          <button id="download-feedback-btn" class="secondary-btn">Download Feedback (.txt)</button> 
           <button id="new-session-btn" class="primary-btn">Start New Session</button>
         </div>
       </div>

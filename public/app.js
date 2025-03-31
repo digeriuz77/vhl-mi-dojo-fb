@@ -8,25 +8,18 @@ document.addEventListener('DOMContentLoaded', function() {
   initApp();
 });
 
-// Initialize the application
+// Initialize the application - always show landing page
 function initApp() {
-  // Check if coming back from a previous session
-  const sessionState = localStorage.getItem('mi-dojo-state');
-  // Add a URL parameter check
-  const urlParams = new URLSearchParams(window.location.search);
-  const showLanding = urlParams.get('landing');
-  
-  if (sessionState === 'app' && showLanding !== 'true') {
-    showApp();
-  } else {
-    // Reset state and show landing
-    localStorage.removeItem('mi-dojo-state');
-    document.getElementById('landing-page').classList.remove('hidden');
-    document.getElementById('app-container').classList.add('hidden');
-  }
+  window.addEventListener('message', (event) => { if (event.data && event.data.type === 'LOCAL_STORAGE_CLEARED') { localStorage.clear(); } });
+  localStorage.clear();
+  document.getElementById('landing-page').classList.remove('hidden');
+  document.getElementById('app-container').classList.add('hidden');
   
   // Set up event listeners
   setupEventListeners();
+  
+  // Set up avatar selection
+  setupAvatarSelection();
   
   // Initialize UI based on device
   setupAdaptiveUI();
@@ -36,9 +29,123 @@ function initApp() {
   
   // Check if Firebase is loaded
   checkFirebaseLoaded();
+}
+
+// Set up avatar selection
+function setupAvatarSelection() {
+  const avatarCards = document.querySelectorAll('.avatar-card');
+  const createPersonaForm = document.querySelector('.create-persona-form');
   
-  // Initialize speech synthesis if available
-  initSpeech();
+  avatarCards.forEach(card => {
+    card.addEventListener('click', function() {
+      // Remove selected class from all cards
+      avatarCards.forEach(c => c.classList.remove('selected'));
+      
+      // Add selected class to clicked card
+      this.classList.add('selected');
+      
+      const personaType = this.getAttribute('data-persona');
+      
+      if (personaType === 'custom') {
+        // Show the create persona form
+        createPersonaForm.classList.remove('hidden');
+      } else {
+        // Hide the create persona form
+        createPersonaForm.classList.add('hidden');
+        
+        // Load the preset persona
+        loadPresetPersona(personaType);
+      }
+    });
+  });
+}
+
+// Function to load a preset persona
+function loadPresetPersona(personaName) {
+  // Show loading overlay
+  showLoading(true);
+  
+  // Call the Firebase Function to get preset persona
+  const getPresetPersonaFn = firebase.functions().httpsCallable('getPresetPersona');
+  
+  getPresetPersonaFn({
+    name: personaName
+  })
+  .then((result) => {
+    // Store the persona details
+    window.currentPersona = result.data;
+    window.currentSessionId = result.data.persona_id;
+    window.conversationHistory = [];
+    
+    // Render persona details
+    renderPersonaDetails(result.data);
+    
+    // Switch to chat screen
+    transitionToScreen('chat');
+    
+    // Clear previous chat
+    document.getElementById('chat-messages').innerHTML = '';
+    
+    // Add welcome message
+    addWelcomeMessage(personaName);
+    
+    // Reset coaching button
+    document.getElementById('get-coaching-btn').disabled = true;
+    document.getElementById('session-feedback-btn').disabled = true;
+    
+    // Hide loading overlay
+    showLoading(false);
+    
+    // Setup sidebar toggle
+    setupSidebarToggle();
+    
+    // Setup coaching sidebar
+    setupCoachingSidebar();
+  })
+  .catch((error) => {
+    console.error('Error loading preset persona:', error);
+    showError('Failed to load preset persona. Please try again.');
+    showLoading(false);
+  });
+}
+
+// Function to add a welcome message from the persona
+function addWelcomeMessage(personaName) {
+  // Define welcome messages for each persona
+  const welcomeMessages = {
+    mat: [
+      "Hi there. I'm Mat. I've been leading the product team for about two years now. My boss suggested I talk to someone about my management approach.",
+      "Hello. I'm Mat. Things have been pretty intense at work lately. I'm not sure if I'm handling the team pressure well.",
+      "Hey. Mat here. I've been thinking about how I interact with my team. Some feedback suggests I might need to adjust my style."
+    ],
+    saira: [
+      "Hi, I'm Saira. My doctor recommended I speak with someone about managing my condition better. It's been a struggle lately.",
+      "Hello there. I'm Saira. Living with this autoimmune condition has been challenging. I'm trying to find better ways to cope.",
+      "Thanks for meeting with me. I'm Saira. I've been dealing with health issues for years, and I'm looking for new approaches."
+    ],
+    ogi: [
+      "Hey! I'm Ogi. I recently started a new fitness routine and diet. It's going well, but I'm facing some challenges sticking with it.",
+      "Hi there! Ogi here. I've made some lifestyle changes recently, but social situations make it hard to stay on track.",
+      "Hello! I'm Ogi. I'm excited about my new healthy habits, but I'm worried about maintaining them long-term."
+    ]
+  };
+  
+  // Get random welcome message for the selected persona
+  const messages = welcomeMessages[personaName] || ["Hello, I'm ready to chat with you."];
+  const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+  
+  // Add message to chat
+  addMessageToChat('persona', randomMessage);
+  
+  // Update conversation history
+  if (!window.conversationHistory) {
+    window.conversationHistory = [];
+  }
+  
+  window.conversationHistory.push({
+    role: 'persona',
+    content: randomMessage
+  });
 }
 
 // Set up all event listeners for the application
@@ -107,9 +214,15 @@ function setupEventListeners() {
       transitionToScreen('welcome');
     });
   }
+
+  // Download Feedback button (on feedback screen)
+  const downloadFeedbackBtn = document.getElementById('download-feedback-btn');
+  if (downloadFeedbackBtn) {
+    downloadFeedbackBtn.addEventListener('click', downloadFeedback);
+  }
   
-  // Add download button
-  addDownloadButton();
+  // Add download buttons (chat download in sidebar)
+  addDownloadButtons();
   
   // Add back to landing option if not already there
   if (!document.getElementById('back-to-landing-btn')) {
@@ -550,6 +663,7 @@ function requestCoachingFeedback() {
             <p>${coaching.coaching_message || ''}</p>
             ${coaching.mi_technique_used ? `<div class="technique">Technique used: ${coaching.mi_technique_used}</div>` : ''}
             ${coaching.missed_opportunity ? `<div class="opportunity">Missed opportunity: ${coaching.missed_opportunity}</div>` : ''}
+            ${coaching.values_alignment_feedback ? `<div class="values-feedback">Values Alignment: ${coaching.values_alignment_feedback}</div>` : ''}
           </div>
         `;
         
@@ -585,11 +699,6 @@ function simulateStreamingResponse(messageId, fullResponse) {
     if (currentPosition >= totalLength) {
       // All chunks added, finish up
       messagePara.textContent = fullResponse;
-      
-      // Speak text if speech is enabled
-      if (window.speechEnabled) {
-        speakText(fullResponse);
-      }
       return;
     }
     
@@ -656,11 +765,6 @@ function addMessageToChat(role, content) {
       top: chatMessages.scrollHeight,
       behavior: 'smooth'
     });
-  }
-  
-  // Speak text if it's a persona message and speech is enabled
-  if (role === 'persona' && window.speechEnabled) {
-    speakText(content);
   }
 }
 
@@ -756,6 +860,7 @@ function updateCoachingFeedback(showLoadingOverlay = false) {
             <p>${coaching.coaching_message || ''}</p>
             ${coaching.mi_technique_used ? `<div class="technique">Technique used: ${coaching.mi_technique_used}</div>` : ''}
             ${coaching.missed_opportunity ? `<div class="opportunity">Missed opportunity: ${coaching.missed_opportunity}</div>` : ''}
+            ${coaching.values_alignment_feedback ? `<div class="values-feedback">Values Alignment: ${coaching.values_alignment_feedback}</div>` : ''}
           </div>
         `;
         sidebarContent.innerHTML = contentHTML;
@@ -832,6 +937,7 @@ function getCoaching(showLoadingOverlay = true) {
       <p>${coaching.coaching_message || ''}</p>
       ${coaching.mi_technique_used ? `<div class="technique">Technique used: ${coaching.mi_technique_used}</div>` : ''}
       ${coaching.missed_opportunity ? `<div class="opportunity">Missed opportunity: ${coaching.missed_opportunity}</div>` : ''}
+      ${coaching.values_alignment_feedback ? `<div class="values-feedback">Values Alignment: ${coaching.values_alignment_feedback}</div>` : ''}
     `;
     
     if (coaching.has_coaching) {
@@ -876,6 +982,9 @@ function generateSessionFeedback() {
     persona: window.currentPersona
   })
   .then((result) => {
+    // Store feedback data for download
+    window.currentFeedbackData = result.data; 
+    
     // Render the MITI feedback
     renderFeedback(result.data);
     
@@ -1045,6 +1154,7 @@ function endSession() {
     // Clear current session variables
     window.currentPersona = null;
     window.conversationHistory = [];
+    window.currentFeedbackData = null; // Clear feedback data
     
     // Return to welcome screen
     transitionToScreen('welcome');
@@ -1066,7 +1176,7 @@ function showError(message) {
   alert(message);
 }
 
-// Download conversation
+// Download conversation as TXT
 function downloadConversation() {
   const history = getConversationHistory();
   if (history.length === 0) {
@@ -1074,183 +1184,137 @@ function downloadConversation() {
     return;
   }
   
-  // Format conversation for download
-  let content = "# MI-Dojo Conversation\n\n";
+  // Format conversation for download as plain text
+  let content = "MI-Dojo Conversation\n";
+  content += "====================\n\n";
   content += `Date: ${new Date().toLocaleString()}\n\n`;
   
   // Add persona information
   if (window.currentPersona) {
-    content += "## Persona Information\n\n";
+    content += "Persona Information\n";
+    content += "-------------------\n";
     content += `Condition: ${window.currentPersona.base_characteristics.condition}\n`;
     content += `Stage of Change: ${window.currentPersona.base_characteristics.stage_of_change}\n`;
     content += `Communication Style: ${window.currentPersona.base_characteristics.communication_style}\n\n`;
   }
   
   // Add conversation
-  content += "## Conversation\n\n";
+  content += "Conversation\n";
+  content += "------------\n";
   history.forEach(msg => {
     const speaker = msg.role === 'user' ? 'You' : 'Client';
-    content += `**${speaker}**: ${msg.content}\n\n`;
+    content += `${speaker}: ${msg.content}\n\n`;
   });
   
   // Create download link
-  const blob = new Blob([content], { type: 'text/markdown' });
+  const blob = new Blob([content], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `midojo-conversation-${Date.now()}.md`;
+  a.download = `midojo-conversation-${Date.now()}.txt`;
   a.click();
   
   // Clean up
   URL.revokeObjectURL(url);
 }
 
-// Add download button
-function addDownloadButton() {
-  if (document.getElementById('download-conversation-btn')) {
-    return; // Button already exists
+// Download feedback as TXT
+function downloadFeedback() {
+  if (!window.currentFeedbackData) {
+    alert('No feedback data available to download. Please generate MITI Analysis first.');
+    return;
   }
-  
-  const downloadBtn = document.createElement('button');
-  downloadBtn.id = 'download-conversation-btn';
-  downloadBtn.className = 'secondary-btn';
-  downloadBtn.innerHTML = '<span class="material-icons">download</span> Download Chat';
-  downloadBtn.addEventListener('click', downloadConversation);
-  
-  // Add to sidebar actions
-  const sidebarActions = document.querySelector('.sidebar-actions');
-  if (sidebarActions) {
-    sidebarActions.appendChild(downloadBtn);
-  }
-}
 
-// Initialize speech synthesis
-let speechEnabled = false;
-let speechSynthesis = window.speechSynthesis;
-let currentVoice = null;
+  const feedback = window.currentFeedbackData;
+  let content = "MI-Dojo Session Feedback (MITI Analysis)\n";
+  content += "=========================================\n\n";
+  content += `Date: ${new Date().toLocaleString()}\n\n`;
 
-function initSpeech() {
-  if ('speechSynthesis' in window) {
-    speechSynthesis = window.speechSynthesis;
-    
-    // Wait for voices to be loaded
-    speechSynthesis.onvoiceschanged = function() {
-      const voices = speechSynthesis.getVoices();
-      // Set a default voice
-      currentVoice = voices.find(voice => voice.lang === 'en-US') || voices[0];
-    };
-    
-    // Initial voice loading
-    if (speechSynthesis.getVoices().length > 0) {
-      const voices = speechSynthesis.getVoices();
-      currentVoice = voices.find(voice => voice.lang === 'en-US') || voices[0];
-    }
-    
-    // Add speech toggle button if not already there
-    setupSpeechControls();
-    
-    return true;
-  }
-  return false;
-}
-
-function toggleSpeech() {
-  speechEnabled = !speechEnabled;
-  document.getElementById('toggle-speech-btn').classList.toggle('active', speechEnabled);
-  
-  // Announce status change
-  if (speechEnabled) {
-    speakText("Voice enabled");
-  } else {
-    // Stop any ongoing speech
-    speechSynthesis.cancel();
-  }
-}
-
-function speakText(text) {
-  if (!speechEnabled || !speechSynthesis) return;
-  
-  // Stop any ongoing speech
-  speechSynthesis.cancel();
-  
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.voice = currentVoice;
-  
-  // Use the speech rate from slider if available
-  if (window.speechRate) {
-    utterance.rate = window.speechRate;
-  }
-  
-  // Adjust based on persona characteristics
   if (window.currentPersona) {
-    // Example: Adjust voice based on persona characteristics
-    if (window.currentPersona.base_characteristics.communication_style.includes('Assertive')) {
-      utterance.pitch = 1.1; // Slightly higher
-    } else if (window.currentPersona.base_characteristics.communication_style.includes('Hesitant')) {
-      utterance.pitch = 0.95; // Slightly lower
+    content += "Persona Information\n";
+    content += "-------------------\n";
+    content += `Condition: ${window.currentPersona.base_characteristics.condition}\n`;
+    content += `Stage of Change: ${window.currentPersona.base_characteristics.stage_of_change}\n\n`;
+  }
+
+  content += "MITI Scores\n";
+  content += "-----------\n";
+  content += "Global Scores (1-5 scale):\n";
+  content += `  Partnership: ${feedback.global_scores.partnership} (${feedback.competency_assessment.relational})\n`;
+  content += `  Empathy: ${feedback.global_scores.empathy} (${feedback.competency_assessment.relational})\n`;
+  content += `  Cultivating Change Talk: ${feedback.global_scores.cultivating_change_talk} (${feedback.competency_assessment.technical})\n`;
+  content += `  Softening Sustain Talk: ${feedback.global_scores.softening_sustain_talk} (${feedback.competency_assessment.technical})\n\n`;
+
+  content += "Behavior Counts:\n";
+  content += `  Questions: ${feedback.behavior_counts.questions}\n`;
+  content += `  Simple Reflections: ${feedback.behavior_counts.simple_reflections}\n`;
+  content += `  Complex Reflections: ${feedback.behavior_counts.complex_reflections}\n`;
+  content += `  Affirmations: ${feedback.behavior_counts.affirm}\n`;
+  content += `  Seeking Collaboration: ${feedback.behavior_counts.seeking_collaboration}\n`;
+  content += `  Emphasizing Autonomy: ${feedback.behavior_counts.emphasizing_autonomy}\n\n`;
+
+  content += "Derived Metrics:\n";
+  content += `  Reflection-to-Question Ratio: ${feedback.derived_metrics.reflection_to_question_ratio.toFixed(2)} (${feedback.competency_assessment.reflection_to_question_ratio})\n`;
+  content += `  Percent Complex Reflections: ${feedback.derived_metrics.percent_complex_reflections.toFixed(1)}% (${feedback.competency_assessment.percent_complex_reflections})\n`;
+  content += `  Total MI-Adherent: ${feedback.derived_metrics.total_mi_adherent}\n`;
+  content += `  Total MI Non-Adherent: ${feedback.derived_metrics.total_mi_non_adherent}\n\n`;
+
+  content += "Strengths\n";
+  content += "---------\n";
+  feedback.strengths.forEach(strength => content += `- ${strength}\n`);
+  content += "\n";
+
+  content += "Areas for Improvement\n";
+  content += "---------------------\n";
+  feedback.areas_for_improvement.forEach(area => content += `- ${area}\n`);
+  content += "\n";
+
+  if (feedback.examples && (feedback.examples.good_examples.length > 0 || feedback.examples.missed_opportunities.length > 0)) {
+    content += "Examples\n";
+    content += "--------\n";
+    if (feedback.examples.good_examples.length > 0) {
+      content += "Effective MI Techniques Used:\n";
+      feedback.examples.good_examples.forEach(example => content += `- ${example}\n`);
+      content += "\n";
+    }
+    if (feedback.examples.missed_opportunities.length > 0) {
+      content += "Missed Opportunities:\n";
+      feedback.examples.missed_opportunities.forEach(example => content += `- ${example}\n`);
+      content += "\n";
+    }
+  }
+
+  // Create download link
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `midojo-feedback-${Date.now()}.txt`;
+  a.click();
+  
+  // Clean up
+  URL.revokeObjectURL(url);
+}
+
+
+// Add download buttons (chat and feedback)
+function addDownloadButtons() {
+  // Chat Download Button (Sidebar)
+  if (!document.getElementById('download-conversation-btn')) {
+    const downloadChatBtn = document.createElement('button');
+    downloadChatBtn.id = 'download-conversation-btn';
+    downloadChatBtn.className = 'secondary-btn';
+    downloadChatBtn.innerHTML = '<span class="material-icons">download</span> Download Chat (.txt)';
+    downloadChatBtn.addEventListener('click', downloadConversation);
+    
+    const sidebarActions = document.querySelector('.sidebar-actions');
+    if (sidebarActions) {
+      sidebarActions.appendChild(downloadChatBtn);
     }
   }
   
-  speechSynthesis.speak(utterance);
-}
-
-// Add speech controls
-function setupSpeechControls() {
-  if (document.getElementById('toggle-speech-btn')) {
-    return; // Controls already exist
-  }
-  
-  const speechToggle = document.createElement('button');
-  speechToggle.id = 'toggle-speech-btn';
-  speechToggle.className = 'secondary-btn speech-toggle';
-  speechToggle.innerHTML = '<span class="material-icons">volume_up</span>';
-  speechToggle.title = 'Toggle Voice';
-  speechToggle.addEventListener('click', toggleSpeech);
-  
-  // Add to sidebar actions
-  const sidebarActions = document.querySelector('.sidebar-actions');
-  if (sidebarActions) {
-    sidebarActions.prepend(speechToggle);
-    
-    // Add speed control slider with delay to ensure proper rendering
-    setTimeout(() => addSpeechSpeedControl(), 100);
-  }
-}
-
-// Add speech speed control
-function addSpeechSpeedControl() {
-  if (document.querySelector('.speech-speed-control')) {
-    return; // Already exists
-  }
-  
-  const speechBtn = document.getElementById('toggle-speech-btn');
-  if (!speechBtn) return;
-  
-  // Create speed control container
-  const speedControl = document.createElement('div');
-  speedControl.className = 'speech-speed-control';
-  speedControl.innerHTML = `
-    <div class="speed-slider-container">
-      <span class="speed-value">0.5×</span>
-      <input type="range" min="0.5" max="2" step="0.1" value="1" class="speed-slider" id="speech-speed-slider">
-      <span class="speed-value">2.0×</span>
-    </div>
-    <div class="current-speed">
-      <span id="current-speed-value">1.0×</span>
-    </div>
-  `;
-  
-  // Insert after speech button
-  speechBtn.parentNode.insertBefore(speedControl, speechBtn.nextSibling);
-  
-  // Set up event listener
-  document.getElementById('speech-speed-slider').addEventListener('input', function(e) {
-    const value = parseFloat(e.target.value).toFixed(1);
-    document.getElementById('current-speed-value').textContent = `${value}×`;
-    
-    // Store the speech rate for use in speakText
-    window.speechRate = parseFloat(value);
-  });
+  // Feedback Download Button listener is added in setupEventListeners
+  // as the button exists in the initial HTML
 }
 
 // Setup sidebar toggle (persona info)
@@ -1275,8 +1339,8 @@ function setupSidebarToggle() {
   // Create coaching sidebar if it doesn't exist
   setupCoachingSidebar();
   
-  // Add download button
-  addDownloadButton();
+  // Add download buttons
+  addDownloadButtons();
 }
 
 // Toggle sidebar visibility
@@ -1456,13 +1520,13 @@ function showMobileToolsMenu() {
           <span class="material-icons">assessment</span>
           <span>MITI Analysis</span>
         </div>
-        <div class="tool-item" id="mobile-download-btn">
+        <div class="tool-item" id="mobile-download-chat-btn">
           <span class="material-icons">download</span>
-          <span>Download Conversation</span>
+          <span>Download Chat (.txt)</span>
         </div>
-        <div class="tool-item" id="mobile-speech-btn">
-          <span class="material-icons">volume_up</span>
-          <span>Toggle Speech</span>
+        <div class="tool-item" id="mobile-download-feedback-btn">
+          <span class="material-icons">download</span>
+          <span>Download Feedback (.txt)</span>
         </div>
         <div class="tool-item" id="mobile-end-btn">
           <span class="material-icons">exit_to_app</span>
@@ -1495,14 +1559,14 @@ function showMobileToolsMenu() {
     setTimeout(() => toolsMenu.remove(), 300);
   });
   
-  document.getElementById('mobile-download-btn').addEventListener('click', () => {
+  document.getElementById('mobile-download-chat-btn').addEventListener('click', () => {
     downloadConversation();
     toolsMenu.classList.remove('active');
     setTimeout(() => toolsMenu.remove(), 300);
   });
-  
-  document.getElementById('mobile-speech-btn').addEventListener('click', () => {
-    toggleSpeech();
+
+  document.getElementById('mobile-download-feedback-btn').addEventListener('click', () => {
+    downloadFeedback();
     toolsMenu.classList.remove('active');
     setTimeout(() => toolsMenu.remove(), 300);
   });

@@ -2,40 +2,136 @@
  * MI-Dojo - Motivational Interviewing Training Platform
  * 
  * A comprehensive platform for practicing motivational interviewing skills
- * with AI-generated personas and real-time feedback.
+ * with AI-generated personas, real-time feedback, and org-aware rubric scoring.
  */
 
+// Removed devLocalRetrieverRef import
 import { gemini20Flash, googleAI } from '@genkit-ai/googleai';
 import { genkit, z } from 'genkit';
+// Removed retriever imports
 
-// Initialize Genkit with Google AI plugin
+// Removed retriever definitions
+
 const ai = genkit({
   plugins: [googleAI()],
   model: gemini20Flash,
 });
 
+// Export the configured ai instance
+export { ai };
+
+async function readPromptFile(filePath: string): Promise<string> {
+  const fs = require('fs').promises;
+  try {
+    const data = await fs.readFile(filePath, 'utf8');
+    return data;
+  } catch (err) {
+    throw new Error(`Error reading prompt file ${filePath}: ${err}`);
+  }
+}
+
+// ===== PRESET PERSONAS =====
+const presetPersonas = {
+  mat: {
+    persona_id: 'mat_workplace',
+    base_characteristics: {
+      condition: 'Workplace dynamics',
+      stage_of_change: 'contemplation',
+      key_resistances: ['Prefers autonomy', 'Skeptical of coaching', 'Concerned about judgment'],
+      communication_style: 'Direct but thoughtful, sometimes defensive',
+    },
+    scenario_context: {
+      life_circumstances: 'Team leader with tight deadlines',
+      support_system: 'Has a mentor but avoids vulnerability',
+      stress_factors: ['Performance pressure', 'Managing conflict', 'Fear of stagnation'],
+    },
+    change_dynamics: {
+      readiness_level: 'High',
+      ambivalence_areas: ['Work/life balance', 'Judging self-worth'],
+      change_talk_patterns: {
+        commitment: 7,
+        desire: 6,
+        ability: 5,
+        need: 6,
+        reasons: 7,
+        taking_steps: 6,
+      },
+    },
+    org_values_alignment: {
+      foundations: ['Growth', 'Trust', 'Responsibility'],
+      technical_domains: ['Empower decisions', 'Explore ambivalence', 'Summarize change talk']
+    },
+  },
+  saira: {
+    persona_id: 'saira_health',
+    base_characteristics: {
+      condition: 'Chronic illness',
+      stage_of_change: 'preparation',
+      key_resistances: ['Fear of pain', 'Conflicting medical advice'],
+      communication_style: 'Emotionally expressive, uses metaphors, concerned about trust',
+    },
+    scenario_context: {
+      life_circumstances: 'Managing a long-term autoimmune condition',
+      support_system: 'Family is involved but inconsistent',
+      stress_factors: ['Physical pain', 'Loss of independence'],
+    },
+    change_dynamics: {
+      readiness_level: 'High desire, mixed ability',
+      ambivalence_areas: ['Medication vs lifestyle', 'External support'],
+      change_talk_patterns: {
+        commitment: 5,
+        desire: 7,
+        ability: 4,
+        need: 8,
+        reasons: 6,
+        taking_steps: 4,
+      },
+    },
+    org_values_alignment: {
+      foundations: ['Kindness', 'Honesty', 'Dignity'],
+      technical_domains: ['Affirm strengths', 'Reflect emotion', 'Empathic presence']
+    },
+  },
+  ogi: {
+    persona_id: 'ogi_lifestyle',
+    base_characteristics: {
+      condition: 'Lifestyle habits',
+      stage_of_change: 'action',
+      key_resistances: ['Social pressure', 'Temptation at work events'],
+      communication_style: 'Friendly, sometimes tangential, keen on self-improvement',
+    },
+    scenario_context: {
+      life_circumstances: 'Recently started new job and gym routine',
+      support_system: 'Peers supportive, family skeptical',
+      stress_factors: ['New routine fatigue', 'Perfectionism'],
+    },
+    change_dynamics: {
+      readiness_level: 'High',
+      ambivalence_areas: ['Work/life balance', 'Judging self-worth'],
+      change_talk_patterns: {
+        commitment: 7,
+        desire: 6,
+        ability: 5,
+        need: 6,
+        reasons: 7,
+        taking_steps: 6,
+      },
+    },
+    org_values_alignment: {
+      foundations: ['Respect', 'Courage', 'Collaboration'],
+      technical_domains: ['Active listening', 'Support autonomy', 'Evoke change talk']
+    },
+  },
+};
+
 // ===== SCHEMAS =====
 
-// Schema for persona generation input
 const PersonaInputSchema = z.object({
-  scenario_type: z.enum([
-    'chronic_illness', 
-    'addiction', 
-    'lifestyle_change', 
-    'mental_health', 
-    'preventive_care'
-  ]),
-  change_readiness: z.enum([
-    'pre_contemplation', 
-    'contemplation', 
-    'preparation', 
-    'action', 
-    'maintenance'
-  ]),
+  scenario_type: z.enum(['chronic_illness', 'addiction', 'lifestyle_change', 'mental_health', 'preventive_care']),
+  change_readiness: z.enum(['pre_contemplation', 'contemplation', 'preparation', 'action', 'maintenance']),
   additional_context: z.string().optional(),
 });
 
-// Schema for the generated persona
 const PersonaOutputSchema = z.object({
   persona_id: z.string(),
   base_characteristics: z.object({
@@ -61,29 +157,29 @@ const PersonaOutputSchema = z.object({
       taking_steps: z.coerce.number(),
     }),
   }),
+  org_values_alignment: z.object({
+    foundations: z.array(z.string()),
+    technical_domains: z.array(z.string()),
+  }),
 });
 
-// Schema for chat messages
 const MessageSchema = z.object({
   role: z.enum(['user', 'persona']),
   content: z.string(),
 });
 
-// Schema for chat input
 const ChatInputSchema = z.object({
   persona: PersonaOutputSchema,
   message: z.string(),
   conversation_history: z.array(MessageSchema).optional(),
 });
 
-// Schema for coaching input
 const CoachingInputSchema = z.object({
   user_message: z.string(),
   conversation_history: z.array(MessageSchema),
   persona: PersonaOutputSchema,
 });
 
-// Schema for coaching output
 const CoachingOutputSchema = z.object({
   has_coaching: z.boolean(),
   coaching_message: z.string().optional(),
@@ -91,19 +187,15 @@ const CoachingOutputSchema = z.object({
   missed_opportunity: z.string().optional(),
 });
 
-// Schema for session feedback input
 const SessionFeedbackInputSchema = z.object({
   conversation: z.array(MessageSchema),
   persona: PersonaOutputSchema,
 });
 
-// Schema for MITI scores (using MITI 4.2.1 coding system)
 const MITIScoreSchema = z.object({
   global_scores: z.object({
-    // Technical Components
     cultivating_change_talk: z.number().min(1).max(5),
     softening_sustain_talk: z.number().min(1).max(5),
-    // Relational Components
     partnership: z.number().min(1).max(5),
     empathy: z.number().min(1).max(5),
   }),
@@ -141,298 +233,270 @@ const MITIScoreSchema = z.object({
   })
 });
 
+const ValuesScoringInputSchema = z.object({
+  conversation: z.array(MessageSchema),
+  persona: PersonaOutputSchema,
+  org: z.string(),
+});
+
+const ValuesScoringOutputSchema = z.object({
+  // Modified scores and ratings to have explicit properties based on fallback context
+  scores: z.object({
+    Respect: z.number().min(1).max(5).optional(),
+    Integrity: z.number().min(1).max(5).optional(),
+    Empathy: z.number().min(1).max(5).optional(),
+    Support: z.number().min(1).max(5).optional(),
+  }),
+  ratings: z.object({
+    Respect: z.enum(["Below Fair", "Fair", "Good"]).optional(),
+    Integrity: z.enum(["Below Fair", "Fair", "Good"]).optional(),
+    Empathy: z.enum(["Below Fair", "Fair", "Good"]).optional(),
+    Support: z.enum(["Below Fair", "Fair", "Good"]).optional(),
+  }),
+  strengths: z.array(z.string()),
+  areas_for_improvement: z.array(z.string()),
+  recommendations: z.array(z.string()),
+});
+
+// ===== FLOWS =====
+
+export const miCoachingFlow = ai.defineFlow({
+  name: "miCoachingFlow",
+  inputSchema: CoachingInputSchema,
+  outputSchema: CoachingOutputSchema,
+}, async (input) => {
+  const coachingPrompt = await readPromptFile('./prompts/mi-coaching.prompt');
+
+  const filledPrompt = coachingPrompt 
+    .replace('{{personaBlock}}', JSON.stringify(input.persona, null, 2))
+    .replace('{{historyBlock}}', input.conversation_history.map(msg =>
+      `${msg.role.toUpperCase()}: ${msg.content}`).join('\n'))
+    .replace('{{user_message}}', input.user_message);
+
+  const result = await ai.generate({
+    prompt: filledPrompt,
+    output: {
+      schema: CoachingOutputSchema,
+      format: 'json'
+    },
+  });
+
+  return result.output || {
+    has_coaching: false,
+    coaching_message: "",
+    mi_technique_used: "",
+    missed_opportunity: ""
+  };
+});
+
+export const getPresetPersonaFlow = ai.defineFlow({
+  name: 'getPresetPersonaFlow',
+  inputSchema: z.object({ name: z.enum(['mat', 'saira', 'ogi']) }),
+  outputSchema: PersonaOutputSchema,
+}, async (input) => {
+  const persona = presetPersonas[input.name];
+  if (!persona) throw new Error(`Invalid preset: ${input.name}`);
+  return persona;
+});
+
 // ===== FLOWS =====
 
 // 1. Persona Generation Flow
-export const generatePersonaFlow = ai.defineFlow(
-  {
-    name: "generatePersonaFlow",
-    inputSchema: PersonaInputSchema,
-    outputSchema: PersonaOutputSchema,
-  },
-  async (input) => {
-    const result = await ai.generate({
-      prompt: `Create an authentic patient persona for Motivational Interviewing practice
+// 1. Persona Generation Flow
+export const generatePersonaFlow = ai.defineFlow({
+  name: "generatePersonaFlow",
+  inputSchema: PersonaInputSchema,
+  outputSchema: PersonaOutputSchema,
+}, async (input) => {
+  const result = await ai.generate({
+    prompt: `Create an authentic patient persona for Motivational Interviewing practice
 with scenario: ${input.scenario_type} and readiness stage: ${input.change_readiness}.
 ${input.additional_context || ''}
 
-Be creative but realistic. Keep descriptions concise.
-For change_talk_patterns, use numbers 1-10 to indicate frequency.
-Key resistances should include 2-4 realistic objections.
-Give a unique persona_id combining scenario type and a random element.`,
-      output: { 
-        schema: PersonaOutputSchema,
-        format: 'json'
+Be creative but realistic. Include distinct communication style.
+Return structured JSON matching the schema. Be sure to include an 'org_values_alignment' object listing 2-3 relevant foundation values (e.g. Respect, Kindness) and technical domains (e.g. Evoke change talk, Support autonomy).`,
+    output: {
+      schema: PersonaOutputSchema,
+      format: 'json'
+    },
+  });
+  
+  // Create a complete default object that matches PersonaOutputSchema
+  const defaultPersona = {
+    persona_id: `${input.scenario_type}_${input.change_readiness}_default`,
+    base_characteristics: {
+      condition: input.scenario_type,
+      stage_of_change: input.change_readiness,
+      key_resistances: ['Default resistance'],
+      communication_style: 'Neutral',
+    },
+    scenario_context: {
+      life_circumstances: 'Default life circumstances',
+      support_system: 'Default support system',
+      stress_factors: ['Default stress factor'],
+    },
+    change_dynamics: {
+      readiness_level: 'Moderate',
+      ambivalence_areas: ['Default ambivalence area'],
+      change_talk_patterns: {
+        commitment: 5,
+        desire: 5,
+        ability: 5,
+        need: 5,
+        reasons: 5,
+        taking_steps: 5,
       },
-    });
-    
-    return result.output || {
-      persona_id: "",
-      base_characteristics: { 
-        condition: "", 
-        stage_of_change: "", 
-        key_resistances: [], 
-        communication_style: "" 
+    },
+    org_values_alignment: {
+      foundations: ['Respect', 'Integrity'],
+      technical_domains: ['Active listening', 'Open questioning'],
+    },
+  };
+  
+  // Merge the result with the default, ensuring all required fields exist
+  return {
+    ...defaultPersona,
+    ...result.output,
+    // Ensure nested objects are properly merged
+    base_characteristics: {
+      ...defaultPersona.base_characteristics,
+      ...result.output?.base_characteristics
+    },
+    scenario_context: {
+      ...defaultPersona.scenario_context,
+      ...result.output?.scenario_context
+    },
+    change_dynamics: {
+      ...defaultPersona.change_dynamics,
+      change_talk_patterns: {
+        ...defaultPersona.change_dynamics.change_talk_patterns,
+        ...result.output?.change_dynamics?.change_talk_patterns
       },
-      scenario_context: { 
-        life_circumstances: "", 
-        support_system: "", 
-        stress_factors: [] 
-      },
-      change_dynamics: {
-        readiness_level: "",
-        ambivalence_areas: [],
-        change_talk_patterns: {
-          commitment: 0,
-          desire: 0,
-          ability: 0,
-          need: 0,
-          reasons: 0,
-          taking_steps: 0
-        }
-      }
-    };
-  }
-);
-
-// 2. Chat Interface with Personas
-export const streamingPersonaChatFlow = ai.defineFlow(
-  {
-    name: "streamingPersonaChatFlow",
-    inputSchema: ChatInputSchema,
-    streamSchema: z.object({
-      text: z.string(),
-    }),
-    outputSchema: z.string(),
-  },
-  async (input, { sendChunk }) => {
-    const prompt = `You are roleplaying as a person with the following characteristics:
-
-Condition: ${input.persona.base_characteristics.condition}
-Stage of Change: ${input.persona.base_characteristics.stage_of_change}
-Key Resistances: ${input.persona.base_characteristics.key_resistances.join(", ")}
-Communication Style: ${input.persona.base_characteristics.communication_style}
-
-Life Circumstances: ${input.persona.scenario_context.life_circumstances}
-Support System: ${input.persona.scenario_context.support_system}
-Stress Factors: ${input.persona.scenario_context.stress_factors.join(", ")}
-
-Readiness Level: ${input.persona.change_dynamics.readiness_level}
-Ambivalence Areas: ${input.persona.change_dynamics.ambivalence_areas.join(", ")}
-
-Given your change talk patterns:
-- Commitment level: ${input.persona.change_dynamics.change_talk_patterns.commitment}/10
-- Desire level: ${input.persona.change_dynamics.change_talk_patterns.desire}/10
-- Ability level: ${input.persona.change_dynamics.change_talk_patterns.ability}/10
-- Need level: ${input.persona.change_dynamics.change_talk_patterns.need}/10
-- Reasons level: ${input.persona.change_dynamics.change_talk_patterns.reasons}/10
-- Taking steps level: ${input.persona.change_dynamics.change_talk_patterns.taking_steps}/10
-
-${input.conversation_history ? `Previous conversation:\n${input.conversation_history.map(msg => 
-  `${msg.role === 'user' ? 'User' : 'You'}: ${msg.content}`).join('\n')}` : ''}
-
-User's message: ${input.message}
-
-Respond in first person as this persona would naturally speak. 
-Be authentic to your communication style, readiness level, and ambivalence areas. 
-Show appropriate levels of resistance or openness based on your stage of change.
-Do not break character or reference that you are an AI.`;
-
-    const { response, stream } = await ai.generateStream({
-      prompt,
-    });
-
-    for await (const chunk of stream) {
-      sendChunk({ text: chunk.text });
+      ...result.output?.change_dynamics
+    },
+    org_values_alignment: {
+      ...defaultPersona.org_values_alignment,
+      ...result.output?.org_values_alignment
     }
+  };
+});
 
-    return (await response).text;
-  }
-);
-
-// 3. Real-time MI Coaching System
-export const miCoachingFlow = ai.defineFlow(
-  {
-    name: "miCoachingFlow",
-    inputSchema: CoachingInputSchema,
-    outputSchema: CoachingOutputSchema,
-  },
-  async (input) => {
-    const result = await ai.generate({
-      prompt: `Analyze this motivational interviewing interaction and provide real-time coaching
-for the practitioner (user). The client has these characteristics:
-
+export const unifiedPersonaChatFlow = ai.defineFlow({
+  name: 'unifiedPersonaChatFlow',
+  inputSchema: ChatInputSchema,
+  streamSchema: z.object({ text: z.string() }),
+  outputSchema: z.string(),
+}, async (input, { sendChunk }) => {
+  const prompt = `You are roleplaying as a patient with these traits:
 ${JSON.stringify(input.persona, null, 2)}
 
-Conversation history:
-${input.conversation_history.map(msg => 
-  `${msg.role.toUpperCase()}: ${msg.content}`).join('\n')}
+Conversation so far:
+${input.conversation_history?.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n') || ''}
 
-User's latest message: "${input.user_message}"
+User's latest message: ${input.message}`;
 
-Evaluate whether the user's latest message demonstrates good MI techniques
-like OARS (Open questions, Affirmations, Reflections, Summaries), shows empathy,
-avoids confrontation, and recognizes change talk.
-
-If you identify an opportunity for improvement, provide a brief coaching tip.
-If the user is doing well, indicate that no coaching is needed.`,
-      output: { 
-        schema: CoachingOutputSchema,
-        format: 'json'
-      },
-    });
-    
-    return result.output || {
-      has_coaching: false,
-      coaching_message: "",
-      mi_technique_used: "",
-      missed_opportunity: ""
-    };
+  const { response, stream } = await ai.generateStream({ prompt });
+  for await (const chunk of stream) {
+    sendChunk({ text: chunk.text });
   }
-);
+  return (await response).text;
+});
 
-// 4. Session Analysis & Feedback System
-export const sessionFeedbackFlow = ai.defineFlow(
-  {
-    name: "sessionFeedbackFlow", 
-    inputSchema: SessionFeedbackInputSchema,
-    outputSchema: MITIScoreSchema,
-  },
-  async (input) => {
-    const result = await ai.generate({
-      prompt: `Analyze this motivational interviewing session and provide detailed MITI-based feedback.
+export const sessionFeedbackFlow = ai.defineFlow({
+  name: 'sessionFeedbackFlow',
+  inputSchema: SessionFeedbackInputSchema,
+  outputSchema: MITIScoreSchema,
+}, async (input): Promise<z.infer<typeof MITIScoreSchema>> => { // Add explicit return type
+  // Removed retriever query and try...catch. Using fallback directly.
+  const mitiContext = 'The remote MITI rubric database is not active. Reverting to local interpretation of MI spirit and technique based on MITI 4.2.1 principles.';
+ 
+  const prompt = `Evaluate this session using MITI scoring system.
+
+REFERENCE RUBRIC:
+${mitiContext}
 
 PERSONA:
 ${JSON.stringify(input.persona, null, 2)}
 
 CONVERSATION:
-${input.conversation.map(msg => 
-  `${msg.role.toUpperCase()}: ${msg.content}`).join('\n')}
+${input.conversation.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n')}`;
 
-Provide a comprehensive analysis using the Motivational Interviewing Treatment Integrity (MITI) 
-coding system. Score global measures on a scale from 1-5, count specific behaviors, 
-and calculate derived metrics. Include specific examples from the conversation to support your ratings.
+  // Define fallback object with explicit type
+  const fallbackMITIScore: z.infer<typeof MITIScoreSchema> = {
+    global_scores: { cultivating_change_talk: 3, softening_sustain_talk: 3, partnership: 3, empathy: 3 },
+    behavior_counts: { giving_information: 0, persuade: 0, persuade_with_permission: 0, questions: 0, simple_reflections: 0, complex_reflections: 0, affirm: 0, seeking_collaboration: 0, emphasizing_autonomy: 0, confront: 0 },
+    derived_metrics: { technical_global: 3, relational_global: 3, percent_complex_reflections: 0, reflection_to_question_ratio: 0, total_mi_adherent: 0, total_mi_non_adherent: 0 },
+    competency_assessment: {
+      relational: "Below Fair",
+      technical: "Fair",
+      percent_complex_reflections: "Below Fair",
+      reflection_to_question_ratio: "Below Fair"
+    },
+    strengths: ["Not enough conversation to evaluate"],
+    areas_for_improvement: ["Not enough conversation to evaluate"],
+    examples: { good_examples: [], missed_opportunities: [] }
+  };
 
-Focus particularly on:
-1. Practitioner's ability to evoke change talk
-2. Use of reflections vs. questions
-3. Empathic understanding
-4. Supporting client autonomy
-5. Partnership with client
-
-Highlight 2-3 specific strengths and 2-3 areas for improvement.`,
-      output: { 
-        schema: MITIScoreSchema,
-        format: 'json'
-      },
-    });
-    
-    return result.output || {
-      global_scores: {
-        cultivating_change_talk: 3,
-        softening_sustain_talk: 3,
-        partnership: 3,
-        empathy: 3
-      },
-      behavior_counts: {
-        giving_information: 0,
-        persuade: 0,
-        persuade_with_permission: 0,
-        questions: 0,
-        simple_reflections: 0,
-        complex_reflections: 0,
-        affirm: 0,
-        seeking_collaboration: 0,
-        emphasizing_autonomy: 0,
-        confront: 0
-      },
-      derived_metrics: {
-        technical_global: 3,
-        relational_global: 3,
-        percent_complex_reflections: 0,
-        reflection_to_question_ratio: 0,
-        total_mi_adherent: 0,
-        total_mi_non_adherent: 0
-      },
-      competency_assessment: {
-        relational: "Below Fair",
-        technical: "Fair",
-        percent_complex_reflections: "Below Fair",
-        reflection_to_question_ratio: "Below Fair"
-      },
-      strengths: ["Not enough conversation to evaluate"],
-      areas_for_improvement: ["Not enough conversation to evaluate"],
-      examples: {
-        good_examples: [],
-        missed_opportunities: []
-      }
-    };
-  }
-);
-
-// ===== DEMO FUNCTION =====
-
-// Simple demo function to test the flows
-export const runDemo = async () => {
   try {
-    console.log("===== MI-Dojo: Motivational Interviewing Practice Platform =====\n");
-    
-    // Step 1: Generate a sample persona
-    console.log("Generating persona...");
-    const persona = await generatePersonaFlow({
-      scenario_type: "addiction",
-      change_readiness: "contemplation",
-      additional_context: "The person is struggling with alcohol dependency and has a supportive family but stressful job."
+    const result = await ai.generate({
+      prompt,
+      output: { schema: MITIScoreSchema, format: 'json' },
     });
-    
-    console.log("\nGenerated Persona:");
-    console.log(JSON.stringify(persona, null, 2));
-    
-    // Step 2: Sample conversation
-    console.log("\n===== Starting Sample Conversation =====");
-    
-    // Initialize conversation history with the correct type
-    const conversationHistory: Array<{ role: "user" | "persona"; content: string }> = [];
-    
-    // User message 1
-    const userMessage1 = "Hello, I'm a counselor here to talk with you today. How are you feeling about your relationship with alcohol?";
-    console.log(`\nUser: ${userMessage1}`);
-    
-    // Persona response 1
-    const personaResponse1 = await streamingPersonaChatFlow({
-      persona,
-      message: userMessage1,
-      conversation_history: conversationHistory
-    });
-    console.log(`\nPersona: ${personaResponse1}`);
-    
-    // Update conversation history
-    conversationHistory.push(
-      { role: "user", content: userMessage1 },
-      { role: "persona", content: personaResponse1 }
-    );
-    
-    console.log("All flows executed successfully!");
-    
-    console.log("MITI Scores:");
-    console.log(JSON.stringify(feedback, null, 2));
-    
-    console.log("\n===== Demo Complete =====");
-    
+
+    if (result.output) {
+      // Assuming ai.generate guarantees schema conformance when schema is provided
+      return result.output;
+    } else {
+       // Handle case where output is unexpectedly null/undefined
+       console.warn("Feedback generation returned no output but no error.");
+       return fallbackMITIScore;
+    }
   } catch (error) {
-    console.error("Error in MI-Dojo demo:", error);
+    console.error("Error in feedback generation:", error);
+    // Return the fallback object in case of error
+    return fallbackMITIScore;
   }
-};
+  // This part should now be unreachable
+});
 
-// If this file is run directly, run the demo
-if (require.main === module) {
-  runDemo();
-}
+export const valuesScoringFlow = ai.defineFlow({
+  name: "valuesScoringFlow",
+  inputSchema: ValuesScoringInputSchema,
+  outputSchema: ValuesScoringOutputSchema,
+}, async (input) => {
+  // Removed retriever query and try...catch. Using fallback directly.
+  const rubricContext = 'The remote database is not active, reverting to local. Please evaluate using general values of Respect, Integrity, Empathy, and Support.';
 
-// Export all flows for use in other modules and the Genkit CLI
+  const result = await ai.generate({
+    prompt: `Evaluate this session using the following org rubric:
+
+${rubricContext}
+
+CONVERSATION:
+${input.conversation.map(msg => `${msg.role.toUpperCase()}: ${msg.content}`).join('\n')}
+
+PERSONA:
+${JSON.stringify(input.persona, null, 2)}
+
+Return structured JSON.`,
+    output: { schema: ValuesScoringOutputSchema, format: 'json' },
+  });
+  
+  return result.output ?? {
+    scores: {},
+    ratings: {},
+    strengths: [],
+    areas_for_improvement: [],
+    recommendations: []
+  };
+});
+
+
 export default {
-  generatePersonaFlow,
-  streamingPersonaChatFlow,
   miCoachingFlow,
-  sessionFeedbackFlow
+  getPresetPersonaFlow,
+  generatePersonaFlow,
+  unifiedPersonaChatFlow,
+  sessionFeedbackFlow,
+  valuesScoringFlow
 };
